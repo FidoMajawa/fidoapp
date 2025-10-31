@@ -1,5 +1,6 @@
 package com.example.banknkhonde.ui.screens
 
+import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -11,103 +12,130 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import java.text.NumberFormat
+import java.util.Locale
 
+// Data class remains the same
 data class Loan(
     val memberName: String,
     val amount: Int,
-    val status: String
+    val status: String // "Pending" or "Approved"
 )
 
-@OptIn(ExperimentalMaterial3Api::class)
+// Enum for managing tabs to avoid string errors
+enum class LoanTab {
+    Pending,
+    Approved,
+    AddLoan
+}
+
 @Composable
 fun LoansScreen(navController: NavController) {
-    var selectedTab by remember { mutableStateOf("Pending") }
+    var selectedTab by remember { mutableStateOf(LoanTab.Pending) }
+
+    // This would come from a ViewModel in a real app
     val loans = remember {
         mutableStateListOf(
-            Loan("John Doe", 50000, "Pending"),
-            Loan("Mary Banda", 75000, "Approved"),
-            Loan("James Phiri", 100000, "Pending")
+            Loan("John Banda", 50000, "Pending"),
+            Loan("Mary Chirwa", 75000, "Approved"),
+            Loan("Peter Phiri", 120000, "Pending"),
+            Loan("Alice Mwale", 45000, "Approved")
         )
     }
 
-    Scaffold(
-        topBar = {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(Color(0xFF002147))
-                    .padding(12.dp)
-            ) {
-                Text("Bank Nkhonde", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                Text("Loans", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
-            }
-        },
-        bottomBar = {
-            BottomNavigationBar(navController)
-        },
-        containerColor = Color(0xFFF5F5F5)
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(16.dp)
-        ) {
-            // Tabs
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                TabButton("Pending", selectedTab) { selectedTab = "Pending" }
-                TabButton("Approved", selectedTab) { selectedTab = "Approved" }
-                TabButton("Add Loan", selectedTab) { selectedTab = "Add Loan" }
-            }
+    // FIX: Removed the redundant Scaffold, TopBar, and BottomBar.
+    // This screen's content now correctly renders inside the main AppNavHost Scaffold.
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.surface)
+    ) {
+        // --- Header ---
+        ScreenHeader()
 
-            Spacer(modifier = Modifier.height(16.dp))
+        // --- Tab Selector ---
+        TabSelector(
+            selectedTab = selectedTab,
+            onTabSelected = { selectedTab = it }
+        )
 
-            // Content
-            when (selectedTab) {
-                "Pending" -> LoanList(loans.filter { it.status == "Pending" })
-                "Approved" -> LoanList(loans.filter { it.status == "Approved" })
-                "Add Loan" -> AddLoanSection(loans)
+        // --- Animated Content ---
+        // Provides a smooth transition when switching tabs
+        AnimatedContent(
+            targetState = selectedTab,
+            transitionSpec = {
+                (fadeIn() + slideInHorizontally { it })
+                    .togetherWith(fadeOut() + slideOutHorizontally { -it })
+            },
+            label = "Tab Animation"
+        ) { tab ->
+            Column(modifier = Modifier.padding(16.dp)) {
+                when (tab) {
+                    LoanTab.Pending -> LoanList(loans.filter { it.status == "Pending" })
+                    LoanTab.Approved -> LoanList(loans.filter { it.status == "Approved" })
+                    LoanTab.AddLoan -> AddLoanSection(
+                        onAddLoan = { newLoan ->
+                            loans.add(newLoan)
+                            selectedTab = LoanTab.Pending // Switch back to pending list
+                        }
+                    )
+                }
             }
         }
     }
 }
 
 @Composable
-fun RowScope.TabButton(title: String, selectedTab: String, onClick: () -> Unit) {
-    Box(
+fun ScreenHeader() {
+    Column(
         modifier = Modifier
-            .weight(1f)
-            .height(40.dp)
-            .clickable { onClick() },
-        contentAlignment = Alignment.Center
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surfaceContainer)
+            .padding(horizontal = 20.dp, vertical = 16.dp)
     ) {
-        Surface(
-            shape = RoundedCornerShape(20.dp),
-            color = if (selectedTab == title) Color(0xFF002147) else Color.White,
-            shadowElevation = 4.dp
-        ) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = title,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = if (selectedTab == title) Color.White else Color.Black
-                )
+        Text(
+            text = "Loan Management",
+            style = MaterialTheme.typography.headlineMedium,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+        Text(
+            text = "Review pending requests and manage approved loans.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+@Composable
+fun TabSelector(selectedTab: LoanTab, onTabSelected: (LoanTab) -> Unit) {
+    TabRow(
+        selectedTabIndex = selectedTab.ordinal,
+        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        contentColor = MaterialTheme.colorScheme.primary
+    ) {
+        LoanTab.values().forEach { tab ->
+            val title = when (tab) {
+                LoanTab.AddLoan -> "New Loan"
+                else -> tab.name
             }
+            Tab(
+                selected = selectedTab == tab,
+                onClick = { onTabSelected(tab) },
+                text = { Text(title, fontWeight = FontWeight.Bold) },
+                selectedContentColor = MaterialTheme.colorScheme.primary,
+                unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
@@ -116,10 +144,12 @@ fun RowScope.TabButton(title: String, selectedTab: String, onClick: () -> Unit) 
 fun LoanList(loans: List<Loan>) {
     if (loans.isEmpty()) {
         Box(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(top = 64.dp),
             contentAlignment = Alignment.Center
         ) {
-            Text("No loans found", color = Color.Gray)
+            Text("No loans in this category.", color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     } else {
         LazyColumn(
@@ -127,19 +157,56 @@ fun LoanList(loans: List<Loan>) {
             modifier = Modifier.fillMaxSize()
         ) {
             items(loans) { loan ->
-                Card(
-                    shape = RoundedCornerShape(16.dp),
-                    modifier = Modifier.fillMaxWidth(),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
+                LoanCard(loan = loan)
+            }
+        }
+    }
+}
+
+@Composable
+fun LoanCard(loan: Loan) {
+    // Format currency for better readability
+    val currencyFormat = NumberFormat.getCurrencyInstance(Locale("en", "MW")).apply {
+        currency = java.util.Currency.getInstance("MWK")
+    }
+    val formattedAmount = currencyFormat.format(loan.amount).replace("MWK", "MK ")
+
+    ElevatedCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = loan.memberName,
+                fontWeight = FontWeight.Bold,
+                fontSize = 18.sp,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = formattedAmount,
+                    fontSize = 16.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontWeight = FontWeight.SemiBold
+                )
+                // Status Badge
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = if (loan.status == "Approved") Color(0xFFE8F5E9) else Color(0xFFFFF8E1),
+                    contentColor = if (loan.status == "Approved") Color(0xFF2E7D32) else Color(0xFFFFA000)
                 ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text(loan.memberName, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                        Text("Amount: MWK ${loan.amount}", color = Color.Gray)
-                        Text(
-                            "Status: ${loan.status}",
-                            color = if (loan.status == "Approved") Color(0xFF2E7D32) else Color(0xFFFFA000)
-                        )
-                    }
+                    Text(
+                        text = loan.status,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 12.sp,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
                 }
             }
         }
@@ -147,72 +214,48 @@ fun LoanList(loans: List<Loan>) {
 }
 
 @Composable
-fun AddLoanSection(loans: MutableList<Loan>) {
+fun AddLoanSection(onAddLoan: (Loan) -> Unit) {
     var memberName by remember { mutableStateOf("") }
     var amount by remember { mutableStateOf("") }
+    var hasError by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         OutlinedTextField(
             value = memberName,
             onValueChange = { memberName = it },
             label = { Text("Member Name") },
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
+            isError = hasError && memberName.isBlank()
         )
         OutlinedTextField(
             value = amount,
-            onValueChange = { amount = it },
+            onValueChange = { amount = it.filter { char -> char.isDigit() } },
             label = { Text("Loan Amount") },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            leadingIcon = { Icon(Icons.Default.AttachMoney, contentDescription = null) },
+            isError = hasError && amount.isBlank()
         )
         Button(
             onClick = {
-                if (memberName.isNotBlank() && amount.toIntOrNull() != null) {
-                    loans.add(Loan(memberName, amount.toInt(), "Pending"))
-                    memberName = ""
-                    amount = ""
+                val amountInt = amount.toIntOrNull()
+                if (memberName.isNotBlank() && amountInt != null) {
+                    onAddLoan(Loan(memberName, amountInt, "Pending"))
+                    hasError = false
+                } else {
+                    hasError = true
                 }
             },
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(52.dp),
+            shape = RoundedCornerShape(12.dp)
         ) {
-            Text("Apply Loan")
+            Text("Submit Loan Application", fontSize = 16.sp, fontWeight = FontWeight.Bold)
         }
-    }
-}
-
-@Composable
-fun BottomNavigationBar(navController: NavController) {
-    NavigationBar(containerColor = Color(0xFF002147)) {
-        NavigationBarItem(
-            selected = false,
-            onClick = { navController.navigate("dashboard") },
-            icon = { Icon(Icons.Default.Home, contentDescription = "Dashboard") },
-            label = { Text("Dashboard") },
-            colors = NavigationBarItemDefaults.colors(selectedIconColor = Color.White, selectedTextColor = Color.White)
-        )
-        NavigationBarItem(
-            selected = false,
-            onClick = { navController.navigate("members") },
-            icon = { Icon(Icons.Default.Person, contentDescription = "Members") },
-            label = { Text("Members") },
-            colors = NavigationBarItemDefaults.colors(selectedIconColor = Color.White, selectedTextColor = Color.White)
-        )
-        NavigationBarItem(
-            selected = false,
-            onClick = { navController.navigate("reports") },
-            icon = { Icon(Icons.Default.Description, contentDescription = "Reports") },
-            label = { Text("Reports") },
-            colors = NavigationBarItemDefaults.colors(selectedIconColor = Color.White, selectedTextColor = Color.White)
-        )
-        NavigationBarItem(
-            selected = false,
-            onClick = { navController.navigate("settings") },
-            icon = { Icon(Icons.Default.Settings, contentDescription = "Settings") },
-            label = { Text("Settings") },
-            colors = NavigationBarItemDefaults.colors(selectedIconColor = Color.White, selectedTextColor = Color.White)
-        )
     }
 }
