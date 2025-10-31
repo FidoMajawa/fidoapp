@@ -1,7 +1,6 @@
 package com.example.banknkhonde.ui.screens
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -13,7 +12,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -21,11 +20,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavController
 import java.text.NumberFormat
-import java.util.Locale
+import java.util.*
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 
-// Data class remains the same
 data class Member(
     val name: String,
     val loan: Int,
@@ -36,41 +37,78 @@ data class Member(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MembersScreen(navController: NavController) {
-    // Sample data - in a real app, this would come from a ViewModel
     val members = listOf(
         Member("John Banda", 5000, 2000, "0999 001 098"),
         Member("Mary Chirwa", 10000, 5000, "0999 002 764"),
-        Member("Peter Phiri", 0, 3000, "0999 645 003"), // Member with no loan
+        Member("Peter Phiri", 0, 3000, "0999 645 003"),
         Member("Alice Mwale", 12000, 8000, "0999 435 004"),
         Member("David Kamanga", 6000, 2500, "0999 433 005")
     )
 
-    // A single Scaffold should be in your main navigation host (e.g., AppNavHost.kt)
-    // This screen should not have its own Scaffold, TopBar, or BottomBar.
-    Column(
+    var searchQuery by remember { mutableStateOf("") }
+
+    Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.surface) // Use theme colors
+            .background(MaterialTheme.colorScheme.surface)
+            .statusBarsPadding() // Content starts below status bar
     ) {
-        // --- Search Bar ---
-        OutlinedTextField(
-            value = "", // This would be a state variable in a real app
-            onValueChange = {},
-            placeholder = { Text("Search members...") },
-            leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") },
-            shape = RoundedCornerShape(30.dp),
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp)
-        )
+        Column(modifier = Modifier.fillMaxSize()) {
+            // --- Search Bar ---
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                placeholder = { Text("Search members...") },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") },
+                shape = RoundedCornerShape(30.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+            )
 
-        // --- Member List ---
-        LazyColumn(
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            // --- Filtered Member List ---
+            val filteredMembers = members.filter {
+                it.name.contains(searchQuery, ignoreCase = true)
+            }
+
+            LazyColumn(
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                items(filteredMembers) { member ->
+                    MemberCard(member = member, onClick = {
+                        // TODO: navigate to details
+                        // navController.navigate("memberDetails/${member.name}")
+                    })
+                }
+            }
+        }
+
+        // --- Floating Buttons ---
+        Column(
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(16.dp)
+                .navigationBarsPadding(), // Avoid navigation bar
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalAlignment = Alignment.End
         ) {
-            items(members) { member ->
-                MemberCard(member = member, onClick = { /* TODO: Navigate to member details */ })
+            // Warning Button
+            FloatingActionButton(
+                onClick = { /* TODO: show alerts */ },
+                containerColor = MaterialTheme.colorScheme.errorContainer,
+                contentColor = MaterialTheme.colorScheme.onErrorContainer
+            ) {
+                Icon(Icons.Default.Warning, contentDescription = "Alerts")
+            }
+
+            // Add Button
+            FloatingActionButton(
+                onClick = { /* TODO: navigate to add member */ },
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary
+            ) {
+                Icon(Icons.Default.Add, contentDescription = "Add Member")
             }
         }
     }
@@ -78,9 +116,8 @@ fun MembersScreen(navController: NavController) {
 
 @Composable
 fun MemberCard(member: Member, onClick: () -> Unit) {
-    // Format numbers with commas for better readability
     val currencyFormat = NumberFormat.getCurrencyInstance(Locale("en", "MW"))
-    currencyFormat.currency = java.util.Currency.getInstance("MWK")
+    currencyFormat.currency = Currency.getInstance("MWK")
     val formattedLoan = currencyFormat.format(member.loan)
     val formattedBalance = currencyFormat.format(member.balance)
 
@@ -91,11 +128,10 @@ fun MemberCard(member: Member, onClick: () -> Unit) {
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Row(
-            modifier = Modifier
-                .padding(horizontal = 16.dp, vertical = 12.dp),
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // --- Profile Initial ---
+            // Profile Initial
             Box(
                 modifier = Modifier
                     .size(48.dp)
@@ -113,7 +149,7 @@ fun MemberCard(member: Member, onClick: () -> Unit) {
 
             Spacer(modifier = Modifier.width(16.dp))
 
-            // --- Member Details ---
+            // Member Info
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = member.name,
@@ -123,7 +159,6 @@ fun MemberCard(member: Member, onClick: () -> Unit) {
                 )
                 Spacer(modifier = Modifier.height(4.dp))
 
-                // Display loan status more clearly
                 if (member.loan > 0) {
                     Text(
                         text = "Active Loan: ${formattedLoan.replace("MWK", "MK")}",
@@ -134,14 +169,14 @@ fun MemberCard(member: Member, onClick: () -> Unit) {
                 } else {
                     Text(
                         text = "No active loan",
-                        color = Color(0xFF00695C), // A calming green color
+                        color = Color(0xFF00695C),
                         fontSize = 14.sp,
                         fontWeight = FontWeight.SemiBold
                     )
                 }
             }
 
-            // --- Arrow Icon ---
+            // Arrow Icon
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.ArrowForwardIos,
                 contentDescription = "View Details",

@@ -8,13 +8,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-// 1. FIX: Import icons from the 'filled' set for a consistent look
-import androidx.compose.material.icons.filled.AccountBalanceWallet
-import androidx.compose.material.icons.filled.ArrowDownward // 2. FIX: Add missing import
-import androidx.compose.material.icons.filled.ArrowUpward   // 2. FIX: Add missing import
-import androidx.compose.material.icons.filled.BarChart
-import androidx.compose.material.icons.filled.Group
-import androidx.compose.material.icons.filled.Savings
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -28,78 +22,68 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 
-// 3. FIX: Removed the redundant color definitions.
-// They are automatically available because Color.kt is in the same package.
-// val NavyBlue = Color(0xFF0A192F) <-- REMOVED
-// val Gold = Color(0xFFFFD700)     <-- REMOVED
-// val Slate = Color(0xFF8892B0)      <-- REMOVED
-// val LightSlate = Color(0xFFCCD6F6) <-- REMOVED
+// ✅ COLORS from com.example.banknkhonde.ui.color.kt
+import com.example.banknkhonde.ui.screens.Gold
+import com.example.banknkhonde.ui.screens.LightSlate
+import com.example.banknkhonde.ui.screens.NavyBlue
+import com.example.banknkhonde.ui.screens.Slate
 
 @Composable
 fun DashboardScreen(navController: NavController) {
-    // This content now renders correctly inside the main AppNavHost Scaffold.
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.surfaceContainerLowest) // Use a lighter, modern background
-    ) {
-        // --- Header Section ---
-        item { DashboardHeader(name = "Club Administrator") }
+    Scaffold(
+        bottomBar = { BottomNavigationBar(navController) } // 👈 Add bottom navigation
+    ) { innerPadding ->
+        LazyColumn(
+            modifier = Modifier
+                .padding(innerPadding)
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.surfaceContainerLowest)
+        ) {
+            item { DashboardHeader(name = "Club Administrator") }
+            item { DashboardQuickActions(navController) }
 
-        // --- Quick Actions Section ---
-        item {
-            DashboardQuickActions(navController)
-        }
-
-        // --- Recent Activity Section ---
-        item {
-            Column(Modifier.padding(horizontal = 16.dp, vertical = 20.dp)) {
-                Text(
-                    text = "Recent Activity",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
+            item {
+                Column(Modifier.padding(horizontal = 16.dp, vertical = 20.dp)) {
+                    Text(
+                        text = "Recent Activity",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
             }
-        }
 
-        // --- Transaction List ---
-        val transactions = listOf(
-            Triple("Loan repayment - P. Majawa", "+ MK 15,000", "27 Oct 2025"),
-            Triple("Contribution - M. Chirwa", "+ MK 5,000", "26 Oct 2025"),
-            Triple("Loan disbursed - K. Banda", "- MK 50,000", "25 Oct 2025")
-        )
-        items(transactions) { (desc, amount, date) ->
-            TransactionRow(
-                description = desc,
-                amount = amount,
-                date = date
+            val transactions = listOf(
+                Triple("Loan repayment - P. Majawa", "+ MK 15,000", "27 Oct 2025"),
+                Triple("Contribution - M. Chirwa", "+ MK 5,000", "26 Oct 2025"),
+                Triple("Loan disbursed - K. Banda", "- MK 50,000", "25 Oct 2025")
             )
-        }
 
-        // Add padding at the bottom to avoid content being too close to the navigation bar
-        item { Spacer(modifier = Modifier.height(16.dp)) }
+            items(transactions) { (desc, amount, date) ->
+                TransactionRow(description = desc, amount = amount, date = date)
+            }
+
+            item { Spacer(modifier = Modifier.height(16.dp)) }
+        }
     }
 }
 
-/* -------------------------------------------
-   Redesigned & Professional Helper Composables
--------------------------------------------- */
-
+/* -----------------------------------------------------
+   Header Section
+------------------------------------------------------ */
 @Composable
 fun DashboardHeader(name: String) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .background(brush = Brush.verticalGradient(listOf(NavyBlue, Color(0xFF172A46))))
-            .padding(top = 40.dp, bottom = 24.dp, start = 20.dp, end = 20.dp) // Added top padding for status bar
+            .padding(top = 40.dp, bottom = 24.dp, start = 20.dp, end = 20.dp)
     ) {
         Column {
             Text(text = "Welcome back,", color = LightSlate, style = MaterialTheme.typography.titleMedium)
             Text(text = name, color = Color.White, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Summary Card within the header
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
@@ -140,6 +124,9 @@ fun DashboardHeader(name: String) {
     }
 }
 
+/* -----------------------------------------------------
+   Quick Actions
+------------------------------------------------------ */
 @Composable
 fun DashboardQuickActions(navController: NavController) {
     Column(modifier = Modifier.padding(16.dp)) {
@@ -151,7 +138,6 @@ fun DashboardQuickActions(navController: NavController) {
             modifier = Modifier.padding(bottom = 12.dp)
         )
 
-        // Replaced "Settings" with "Contributions" and used appropriate icons
         val actions = listOf(
             ActionItem("Members", Icons.Filled.Group, "members"),
             ActionItem("Loans", Icons.Filled.AccountBalanceWallet, "loans"),
@@ -159,7 +145,6 @@ fun DashboardQuickActions(navController: NavController) {
             ActionItem("Reports", Icons.Filled.BarChart, "reports")
         )
 
-        // Display actions in a 2x2 grid
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 DashboardActionCard(actions[0], modifier = Modifier.weight(1f)) { navController.navigate(actions[0].route) }
@@ -198,6 +183,9 @@ fun DashboardActionCard(item: ActionItem, modifier: Modifier = Modifier, onClick
     }
 }
 
+/* -----------------------------------------------------
+   Transaction Row
+------------------------------------------------------ */
 @Composable
 fun TransactionRow(description: String, amount: String, date: String) {
     val isCredit = amount.startsWith("+")
@@ -215,9 +203,8 @@ fun TransactionRow(description: String, amount: String, date: String) {
                 .size(40.dp)
                 .clip(CircleShape)
                 .background(
-                    if (isCredit) Color(0xFF2E7D32).copy(alpha = 0.1f) else MaterialTheme.colorScheme.error.copy(
-                        alpha = 0.1f
-                    )
+                    if (isCredit) Color(0xFF2E7D32).copy(alpha = 0.1f)
+                    else MaterialTheme.colorScheme.error.copy(alpha = 0.1f)
                 )
                 .padding(8.dp)
         )
@@ -234,6 +221,33 @@ fun TransactionRow(description: String, amount: String, date: String) {
             fontWeight = FontWeight.Bold,
             color = if (isCredit) Color(0xFF2E7D32) else MaterialTheme.colorScheme.error,
             fontSize = 16.sp
+        )
+    }
+}
+
+/* -----------------------------------------------------
+   Bottom Navigation Bar
+------------------------------------------------------ */
+@Composable
+fun BottomNavigationBar(navController: NavController) {
+    NavigationBar(containerColor = NavyBlue) {
+        NavigationBarItem(
+            selected = false,
+            onClick = { navController.navigate("dashboard") },
+            icon = { Icon(Icons.Filled.Home, contentDescription = "Home", tint = Gold) },
+            label = { Text("Home", color = LightSlate) }
+        )
+        NavigationBarItem(
+            selected = false,
+            onClick = { navController.navigate("notifications") },
+            icon = { Icon(Icons.Filled.Notifications, contentDescription = "Notifications", tint = Gold) },
+            label = { Text("Notifications", color = LightSlate) }
+        )
+        NavigationBarItem(
+            selected = false,
+            onClick = { navController.navigate("settings") },
+            icon = { Icon(Icons.Filled.Settings, contentDescription = "Settings", tint = Gold) },
+            label = { Text("Settings", color = LightSlate) }
         )
     }
 }

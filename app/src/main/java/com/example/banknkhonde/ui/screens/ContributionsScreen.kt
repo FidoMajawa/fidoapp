@@ -7,10 +7,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowUpward
-import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Savings
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -24,6 +21,8 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import java.text.NumberFormat
 import java.util.Locale
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 
 // Data class for a single contribution
 data class Contribution(
@@ -32,9 +31,10 @@ data class Contribution(
     val date: String
 )
 
+
 @Composable
 fun ContributionScreen(navController: NavController) {
-    // This data would come from a ViewModel in a real application
+    // Sample contributions
     val contributions = listOf(
         Contribution("Mary Chirwa", 5000, "26 Oct 2025"),
         Contribution("John Banda", 5000, "26 Oct 2025"),
@@ -43,11 +43,12 @@ fun ContributionScreen(navController: NavController) {
         Contribution("Peter Phiri", 5000, "24 Oct 2025")
     )
 
-    // The main Scaffold is in MainActivity, so we only define the content here
+    // Main content
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.surfaceContainerLowest),
+            .background(MaterialTheme.colorScheme.surfaceContainerLowest)
+            .statusBarsPadding(), // <-- Respect status bar
         contentPadding = PaddingValues(bottom = 16.dp)
     ) {
         // --- Header ---
@@ -114,7 +115,9 @@ fun SummaryCard(totalContributions: Int) {
         elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
     ) {
         Row(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier
+                .padding(16.dp)
+                .navigationBarsPadding(), // <-- Avoid navigation bar overlap
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
@@ -163,7 +166,6 @@ fun ListHeader() {
     }
 }
 
-
 @Composable
 fun ContributionRow(contribution: Contribution) {
     val currencyFormat = NumberFormat.getCurrencyInstance(Locale("en", "MW")).apply {
@@ -203,7 +205,7 @@ fun ContributionRow(contribution: Contribution) {
         Text(
             text = formattedAmount,
             fontWeight = FontWeight.Bold,
-            color = Color(0xFF2E7D32), // A consistent green for credits
+            color = Color(0xFF2E7D32),
             fontSize = 16.sp
         )
     }
