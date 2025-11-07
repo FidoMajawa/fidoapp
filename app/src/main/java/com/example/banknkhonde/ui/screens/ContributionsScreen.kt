@@ -7,13 +7,13 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -21,8 +21,6 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import java.text.NumberFormat
 import java.util.Locale
-import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.navigationBarsPadding
 
 // Data class for a single contribution
 data class Contribution(
@@ -31,7 +29,7 @@ data class Contribution(
     val date: String
 )
 
-
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ContributionScreen(navController: NavController) {
     // Sample contributions
@@ -43,61 +41,49 @@ fun ContributionScreen(navController: NavController) {
         Contribution("Peter Phiri", 5000, "24 Oct 2025")
     )
 
-    // Main content
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.surfaceContainerLowest)
-            .statusBarsPadding(), // <-- Respect status bar
-        contentPadding = PaddingValues(bottom = 16.dp)
-    ) {
-        // --- Header ---
-        item {
-            ContributionHeader()
-        }
-
-        // --- Summary Card ---
-        item {
-            SummaryCard(totalContributions = contributions.sumOf { it.amount })
-        }
-
-        // --- Filter and List Header ---
-        item {
-            ListHeader()
-        }
-
-        // --- List of Contributions ---
-        items(contributions) { contribution ->
-            ContributionRow(contribution)
-        }
-    }
-}
-
-@Composable
-fun ContributionHeader() {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(
-                brush = Brush.verticalGradient(
-                    colors = listOf(NavyBlue, Color(0xFF172A46))
-                )
+    // FIX: Replaced the root LazyColumn with a Scaffold for a consistent layout
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Contributions") },
+                navigationIcon = {
+                    IconButton(onClick = { navController.navigateUp() }) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back to Dashboard"
+                        )
+                    }
+                }
             )
-            .padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 40.dp)
-    ) {
-        Text(
-            text = "Contributions",
-            style = MaterialTheme.typography.headlineLarge,
-            fontWeight = FontWeight.Bold,
-            color = Color.White
-        )
-        Text(
-            text = "Track all member savings and deposits.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = LightSlate
-        )
+        }
+    ) { paddingValues ->
+        // Main content is now a LazyColumn inside the Scaffold
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues) // Use padding from Scaffold
+                .background(MaterialTheme.colorScheme.surfaceContainerLowest),
+            contentPadding = PaddingValues(bottom = 16.dp)
+        ) {
+            // --- Summary Card ---
+            item {
+                SummaryCard(totalContributions = contributions.sumOf { it.amount })
+            }
+
+            // --- Filter and List Header ---
+            item {
+                ListHeader()
+            }
+
+            // --- List of Contributions ---
+            items(contributions) { contribution ->
+                ContributionRow(contribution)
+            }
+        }
     }
 }
+
+// REMOVED: The custom ContributionHeader is no longer needed as TopAppBar is used.
 
 @Composable
 fun SummaryCard(totalContributions: Int) {
@@ -109,15 +95,12 @@ fun SummaryCard(totalContributions: Int) {
     ElevatedCard(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp)
-            .offset(y = (-24).dp), // Pull the card up into the header
+            .padding(horizontal = 16.dp, vertical = 8.dp), // Adjusted padding
         shape = RoundedCornerShape(20.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
         Row(
-            modifier = Modifier
-                .padding(16.dp)
-                .navigationBarsPadding(), // <-- Avoid navigation bar overlap
+            modifier = Modifier.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
@@ -149,7 +132,7 @@ fun ListHeader() {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(start = 20.dp, end = 20.dp, bottom = 12.dp),
+            .padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 12.dp), // Adjusted top padding
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {

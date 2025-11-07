@@ -8,6 +8,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -23,6 +24,8 @@ import java.text.NumberFormat
 import java.util.Locale
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 
 // Data class remains the same
 data class Loan(
@@ -38,6 +41,7 @@ enum class LoanTab {
     AddLoan
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LoansScreen(navController: NavController) {
     var selectedTab by remember { mutableStateOf(LoanTab.Pending) }
@@ -52,77 +56,71 @@ fun LoansScreen(navController: NavController) {
         )
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.surface)
-            .statusBarsPadding() // Content starts below status bar
-    ) {
-        // --- Header ---
-        ScreenHeader()
+    // FIX: Replaced the root Column with a Scaffold for a consistent layout
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Loan Management") },
+                navigationIcon = {
+                    IconButton(onClick = { navController.navigateUp() }) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back to Dashboard"
+                        )
+                    }
+                }
+            )
+        }
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues) // Apply padding from the Scaffold
+                .background(MaterialTheme.colorScheme.surface)
+        ) {
+            // --- Tab Selector ---
+            TabSelector(
+                selectedTab = selectedTab,
+                onTabSelected = { selectedTab = it }
+            )
 
-        // --- Tab Selector ---
-        TabSelector(
-            selectedTab = selectedTab,
-            onTabSelected = { selectedTab = it }
-        )
-
-        // --- Animated Content ---
-        AnimatedContent(
-            targetState = selectedTab,
-            transitionSpec = {
-                (fadeIn() + slideInHorizontally { it })
-                    .togetherWith(fadeOut() + slideOutHorizontally { -it })
-            },
-            label = "Tab Animation"
-        ) { tab ->
-            Column(
-                modifier = Modifier
-                    .padding(16.dp)
-                    .fillMaxSize()
-            ) {
-                when (tab) {
-                    LoanTab.Pending -> LoanList(loans.filter { it.status == "Pending" })
-                    LoanTab.Approved -> LoanList(loans.filter { it.status == "Approved" })
-                    LoanTab.AddLoan -> AddLoanSection(
-                        onAddLoan = { newLoan ->
-                            loans.add(newLoan)
-                            selectedTab = LoanTab.Pending
-                        }
-                    )
+            // --- Animated Content ---
+            AnimatedContent(
+                targetState = selectedTab,
+                transitionSpec = {
+                    (fadeIn() + slideInHorizontally { it })
+                        .togetherWith(fadeOut() + slideOutHorizontally { -it })
+                },
+                label = "Tab Animation"
+            ) { tab ->
+                Column(
+                    modifier = Modifier
+                        .padding(16.dp)
+                        .fillMaxSize()
+                ) {
+                    when (tab) {
+                        LoanTab.Pending -> LoanList(loans.filter { it.status == "Pending" })
+                        LoanTab.Approved -> LoanList(loans.filter { it.status == "Approved" })
+                        LoanTab.AddLoan -> AddLoanSection(
+                            onAddLoan = { newLoan ->
+                                loans.add(newLoan)
+                                selectedTab = LoanTab.Pending
+                            }
+                        )
+                    }
                 }
             }
         }
     }
 }
 
-@Composable
-fun ScreenHeader() {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surfaceContainer)
-            .padding(horizontal = 20.dp, vertical = 16.dp)
-    ) {
-        Text(
-            text = "Loan Management",
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurface
-        )
-        Text(
-            text = "Review pending requests and manage approved loans.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-    }
-}
+// REMOVED: The custom ScreenHeader is no longer needed as TopAppBar is used.
 
 @Composable
 fun TabSelector(selectedTab: LoanTab, onTabSelected: (LoanTab) -> Unit) {
     TabRow(
         selectedTabIndex = selectedTab.ordinal,
-        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        containerColor = MaterialTheme.colorScheme.surface, // Match the page background
         contentColor = MaterialTheme.colorScheme.primary
     ) {
         LoanTab.values().forEach { tab ->

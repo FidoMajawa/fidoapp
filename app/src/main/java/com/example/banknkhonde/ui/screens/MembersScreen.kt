@@ -7,6 +7,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Search
@@ -26,7 +27,10 @@ import java.text.NumberFormat
 import java.util.*
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 
+// Data class for a member
 data class Member(
     val name: String,
     val loan: Int,
@@ -47,13 +51,59 @@ fun MembersScreen(navController: NavController) {
 
     var searchQuery by remember { mutableStateOf("") }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.surface)
-            .statusBarsPadding() // Content starts below status bar
-    ) {
-        Column(modifier = Modifier.fillMaxSize()) {
+    // FIX: Replaced Box with Scaffold to easily add a TopAppBar
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Members") },
+                navigationIcon = {
+                    IconButton(onClick = { navController.navigate("dashboard") {
+                        // Clear back stack to avoid multiple dashboards
+                        popUpTo("dashboard") { inclusive = true }
+                    } }) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back to Dashboard"
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface
+                )
+            )
+        },
+        floatingActionButton = {
+            // --- Floating Buttons ---
+            Column(
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                horizontalAlignment = Alignment.End
+            ) {
+                // Warning Button
+                FloatingActionButton(
+                    onClick = { /* TODO: show alerts */ },
+                    containerColor = MaterialTheme.colorScheme.errorContainer,
+                    contentColor = MaterialTheme.colorScheme.onErrorContainer
+                ) {
+                    Icon(Icons.Default.Warning, contentDescription = "Alerts")
+                }
+
+                // Add Button
+                FloatingActionButton(
+                    onClick = { navController.navigate("addMember") },
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = "Add Member")
+                }
+            }
+        }
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues) // Use padding from Scaffold
+                .background(MaterialTheme.colorScheme.surface)
+        ) {
             // --- Search Bar ---
             OutlinedTextField(
                 value = searchQuery,
@@ -72,7 +122,7 @@ fun MembersScreen(navController: NavController) {
             }
 
             LazyColumn(
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 items(filteredMembers) { member ->
@@ -81,34 +131,6 @@ fun MembersScreen(navController: NavController) {
                         // navController.navigate("memberDetails/${member.name}")
                     })
                 }
-            }
-        }
-
-        // --- Floating Buttons ---
-        Column(
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(16.dp)
-                .navigationBarsPadding(), // Avoid navigation bar
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-            horizontalAlignment = Alignment.End
-        ) {
-            // Warning Button
-            FloatingActionButton(
-                onClick = { /* TODO: show alerts */ },
-                containerColor = MaterialTheme.colorScheme.errorContainer,
-                contentColor = MaterialTheme.colorScheme.onErrorContainer
-            ) {
-                Icon(Icons.Default.Warning, contentDescription = "Alerts")
-            }
-
-            // Add Button
-            FloatingActionButton(
-                onClick = { /* TODO: navigate to add member */ },
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary
-            ) {
-                Icon(Icons.Default.Add, contentDescription = "Add Member")
             }
         }
     }

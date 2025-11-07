@@ -37,6 +37,7 @@ private val LightColorScheme = lightColorScheme(
     outlineVariant = Color(0xFFD1D5DB)
 )
 
+
 @Composable
 fun FinancialReportTheme(content: @Composable () -> Unit) {
     MaterialTheme(colorScheme = LightColorScheme, content = content)

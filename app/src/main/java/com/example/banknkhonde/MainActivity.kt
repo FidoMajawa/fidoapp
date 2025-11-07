@@ -51,6 +51,12 @@ fun AppNavigation() {
                 composable("notifications") {
                     NotificationsScreen(navController = navController)
                 }
+
+                // ADDED: Navigation route for the Add Member screen
+                composable("addMember") {
+                    AddMemberScreen(navController = navController)
+                }
+
                 composable("settings") {
                     SettingsScreen(navController = navController)
                 }
