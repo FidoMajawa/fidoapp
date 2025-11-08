@@ -1,38 +1,47 @@
 package com.example.banknkhonde.ui.screens
 
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Email
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
-import androidx.navigation.compose.rememberNavController
+import coil.compose.rememberAsyncImagePainter
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.storage.FirebaseStorage
+import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.launch
+import java.util.*
 
-// Data class to represent a new member
 data class NewMember(
-    val firstName: String,
-    val lastName: String,
-    val memberId: String,
-    val phoneNumber: String,
-    val email: String
+    val firstName: String = "",
+    val lastName: String = "",
+    val memberId: String = "",
+    val phoneNumber: String = "",
+    val email: String = "",
+    val imageUrl: String = "",
+    val chairEmail: String = ""
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -43,21 +52,22 @@ fun AddMemberScreen(navController: NavController) {
     var memberId by remember { mutableStateOf("") }
     var phoneNumber by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
+    var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
 
-    // State for validation errors
-    var firstNameError by remember { mutableStateOf<String?>(null) }
-    var lastNameError by remember { mutableStateOf<String?>(null) }
-    var memberIdError by remember { mutableStateOf<String?>(null) }
-
-    val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
+    val db = FirebaseFirestore.getInstance()
+    val storage = FirebaseStorage.getInstance()
+    val currentUserEmail = FirebaseAuth.getInstance().currentUser?.email ?: ""
 
-    fun validateFields(): Boolean {
-        firstNameError = if (firstName.isBlank()) "First name cannot be empty" else null
-        lastNameError = if (lastName.isBlank()) "Last name cannot be empty" else null
-        memberIdError = if (memberId.isBlank()) "Member ID cannot be empty" else null
-        return firstNameError == null && lastNameError == null && memberIdError == null
+    val imagePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        selectedImageUri = uri
     }
+
+    fun validateFields(): Boolean =
+        firstName.isNotBlank() && lastName.isNotBlank() && memberId.isNotBlank()
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -66,10 +76,7 @@ fun AddMemberScreen(navController: NavController) {
                 title = { Text("Add New Member") },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back"
-                        )
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
                     }
                 }
             )
@@ -80,128 +87,136 @@ fun AddMemberScreen(navController: NavController) {
                 .fillMaxSize()
                 .padding(paddingValues)
                 .padding(16.dp)
-                .verticalScroll(rememberScrollState()), // Make the column scrollable
+                .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // First Name Field
+            // Profile Image
+            Box(
+                modifier = Modifier
+                    .size(100.dp)
+                    .clip(CircleShape)
+                    .background(Color.LightGray)
+                    .clickable { imagePickerLauncher.launch("image/*") },
+                contentAlignment = Alignment.Center
+            ) {
+                if (selectedImageUri != null) {
+                    Image(
+                        painter = rememberAsyncImagePainter(selectedImageUri),
+                        contentDescription = "Selected Image",
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                } else {
+                    Icon(
+                        Icons.Default.Person,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(50.dp)
+                    )
+                }
+            }
+
+            // Form Fields
             OutlinedTextField(
-                value = firstName,
-                onValueChange = { firstName = it; firstNameError = null },
+                value = firstName, onValueChange = { firstName = it },
                 label = { Text("First Name*") },
                 leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
-                isError = firstNameError != null,
-                supportingText = { if (firstNameError != null) Text(firstNameError!!) },
-                keyboardOptions = KeyboardOptions(
+                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
                     capitalization = KeyboardCapitalization.Words,
                     imeAction = ImeAction.Next
                 ),
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
+                singleLine = true, modifier = Modifier.fillMaxWidth()
             )
 
-            // Last Name Field
             OutlinedTextField(
-                value = lastName,
-                onValueChange = { lastName = it; lastNameError = null },
+                value = lastName, onValueChange = { lastName = it },
                 label = { Text("Last Name*") },
                 leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
-                isError = lastNameError != null,
-                supportingText = { if (lastNameError != null) Text(lastNameError!!) },
-                keyboardOptions = KeyboardOptions(
+                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
                     capitalization = KeyboardCapitalization.Words,
                     imeAction = ImeAction.Next
                 ),
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
+                singleLine = true, modifier = Modifier.fillMaxWidth()
             )
 
-            // Member ID Field
             OutlinedTextField(
-                value = memberId,
-                onValueChange = { memberId = it; memberIdError = null },
+                value = memberId, onValueChange = { memberId = it },
                 label = { Text("Member ID*") },
-                leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
-                isError = memberIdError != null,
-                supportingText = { if (memberIdError != null) Text(memberIdError!!) },
-                keyboardOptions = KeyboardOptions(
+                leadingIcon = { Icon(Icons.Default.Badge, contentDescription = null) },
+                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
                     keyboardType = KeyboardType.Ascii,
                     imeAction = ImeAction.Next
                 ),
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
+                singleLine = true, modifier = Modifier.fillMaxWidth()
             )
 
-            // Phone Number Field
             OutlinedTextField(
-                value = phoneNumber,
-                onValueChange = { phoneNumber = it },
+                value = phoneNumber, onValueChange = { phoneNumber = it },
                 label = { Text("Phone Number") },
                 leadingIcon = { Icon(Icons.Default.Phone, contentDescription = null) },
-                keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Phone,
-                    imeAction = ImeAction.Next
+                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                    keyboardType = KeyboardType.Phone, imeAction = ImeAction.Next
                 ),
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
+                singleLine = true, modifier = Modifier.fillMaxWidth()
             )
 
-            // Email Field
             OutlinedTextField(
-                value = email,
-                onValueChange = { email = it },
+                value = email, onValueChange = { email = it },
                 label = { Text("Email Address") },
                 leadingIcon = { Icon(Icons.Default.Email, contentDescription = null) },
-                keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Email,
-                    imeAction = ImeAction.Done
+                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                    keyboardType = KeyboardType.Email, imeAction = ImeAction.Done
                 ),
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
+                singleLine = true, modifier = Modifier.fillMaxWidth()
             )
 
-            Spacer(modifier = Modifier.weight(1f))
+            Spacer(modifier = Modifier.height(20.dp))
 
-            // Submit Button
             Button(
                 onClick = {
-                    if (validateFields()) {
-                        val newMember = NewMember(
-                            firstName = firstName.trim(),
-                            lastName = lastName.trim(),
-                            memberId = memberId.trim(),
-                            phoneNumber = phoneNumber.trim(),
-                            email = email.trim()
-                        )
-                        // --- TODO: Add your logic here ---
-                        // For example, save the 'newMember' to your database or ViewModel
-                        // Show a confirmation message
-                        scope.launch {
-                            snackbarHostState.showSnackbar(
-                                message = "Member ${newMember.firstName} added successfully!",
-                                duration = SnackbarDuration.Short
+                    if (!validateFields()) {
+                        scope.launch { snackbarHostState.showSnackbar("Fill all required fields!") }
+                        return@Button
+                    }
+
+                    scope.launch {
+                        try {
+                            var imageUrl = ""
+                            selectedImageUri?.let { uri ->
+                                val ref = storage.reference.child("memberImages/${UUID.randomUUID()}")
+                                ref.putFile(uri).await()
+                                imageUrl = ref.downloadUrl.await().toString()
+                            }
+
+                            val newMember = NewMember(
+                                firstName = firstName.trim(),
+                                lastName = lastName.trim(),
+                                memberId = memberId.trim(),
+                                phoneNumber = phoneNumber.trim(),
+                                email = email.trim(),
+                                imageUrl = imageUrl,
+                                chairEmail = currentUserEmail
                             )
+
+                            db.collection("clubMembers")
+                                .document(memberId)
+                                .set(newMember)
+                                .await()
+
+                            snackbarHostState.showSnackbar("Member added successfully!")
+                            navController.popBackStack()
+
+                        } catch (e: Exception) {
+                            snackbarHostState.showSnackbar("Error: ${e.message}")
                         }
-                        // Navigate back after successful submission
-                        navController.popBackStack()
                     }
                 },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(50.dp),
+                modifier = Modifier.fillMaxWidth().height(50.dp),
                 shape = RoundedCornerShape(12.dp)
             ) {
-                Text("Add Member", style = MaterialTheme.typography.bodyLarge)
+                Text("Add Member", fontSize = 16.sp)
             }
         }
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun AddMemberScreenPreview() {
-    // FIX: Replaced the non-existent 'BankNkhondeTheme' with the default 'MaterialTheme'
-    MaterialTheme {
-        AddMemberScreen(navController = rememberNavController())
     }
 }

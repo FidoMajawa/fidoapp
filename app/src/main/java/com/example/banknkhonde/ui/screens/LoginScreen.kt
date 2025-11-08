@@ -86,12 +86,22 @@ fun LoginScreen(navController: NavController) {
                         .padding(24.dp)
                         .fillMaxWidth()
                 ) {
-                    Text(
-                        "Welcome Back",
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = NavyBlue
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Takulandilani",
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = NavyBlue
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "👋", // greeting icon
+                            fontSize = 22.sp
+                        )
+                    }
+
                     Spacer(Modifier.height(16.dp))
 
                     OutlinedTextField(

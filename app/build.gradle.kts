@@ -48,23 +48,31 @@ dependencies {
     implementation(libs.androidx.room.ktx) // For local database
 
     // --- Jetpack Compose ---
-    // Use the Compose BOM to manage versions for all Compose libraries
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
-    implementation(libs.androidx.compose.material3) // Only one declaration needed
+    implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.foundation)
     implementation(libs.androidx.navigation.compose)
-    // Compose Material Icons (using direct versions is fine for stability)
     implementation("androidx.compose.material:material-icons-core:1.7.0")
     implementation("androidx.compose.material:material-icons-extended:1.7.0")
 
-    // --- Firebase ---
-    // Use the Firebase BOM to manage versions for all Firebase libraries
-    implementation(platform("com.google.firebase:firebase-bom:33.1.2")) // A single, stable BoM version
-    // Declare Firebase dependencies WITHOUT versions. The BOM will handle them.
-    implementation("com.google.firebase:firebase-auth") // Note: The -ktx suffix is no longer needed
+    // --- Firebase & Coroutines ---
+    // Import the Firebase BoM (Bill of Materials) ONCE to manage all Firebase dependency versions.
+    implementation(platform(libs.firebase.bom))
+
+    // Now, declare the Firebase libraries you need WITHOUT the -ktx suffix and WITHOUT versions.
+    // The BoM handles versioning to ensure compatibility.
+    implementation(libs.firebase.auth)
+    implementation(libs.firebase.firestore)
+    implementation(libs.firebase.storage)
+
+    // FIX: Add this dependency for .await() support with Firebase Tasks
+    implementation(libs.kotlinx.coroutines.play.services)
+
+    // --- Other ---
+    implementation("io.coil-kt:coil-compose:2.4.0")
 
     // --- Testing ---
     testImplementation(libs.junit)
@@ -74,4 +82,5 @@ dependencies {
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.3")
 }

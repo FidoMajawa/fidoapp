@@ -1,135 +1,137 @@
 package com.example.banknkhonde.ui.screens
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavController
-import java.text.NumberFormat
-import java.util.*
-import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
+import coil.compose.rememberAsyncImagePainter
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 
-// Data class for a member
 data class Member(
-    val name: String,
-    val loan: Int,
-    val balance: Int,
-    val phone: String
+    val firstName: String = "",
+    val lastName: String = "",
+    val memberId: String = "",
+    val phoneNumber: String = "",
+    val email: String = "",
+    val imageUrl: String = "",
+    val chairEmail: String = ""
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MembersScreen(navController: NavController) {
-    val members = listOf(
-        Member("John Banda", 5000, 2000, "0999 001 098"),
-        Member("Mary Chirwa", 10000, 5000, "0999 002 764"),
-        Member("Peter Phiri", 0, 3000, "0999 645 003"),
-        Member("Alice Mwale", 12000, 8000, "0999 435 004"),
-        Member("David Kamanga", 6000, 2500, "0999 433 005")
-    )
+    val db = FirebaseFirestore.getInstance()
+    val currentUserEmail = FirebaseAuth.getInstance().currentUser?.email ?: ""
+    var members by remember { mutableStateOf<List<Member>>(emptyList()) }
+    var searchQuery by remember { mutableStateOf(TextFieldValue("")) }
+    var isLoading by remember { mutableStateOf(true) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
 
-    var searchQuery by remember { mutableStateOf("") }
+    // Load members from Firestore
+    LaunchedEffect(Unit) {
+        try {
+            val snapshot = db.collection("clubMembers")
+                .whereEqualTo("chairEmail", currentUserEmail)
+                .get()
+                .await()
+            members = snapshot.documents.mapNotNull { it.toObject(Member::class.java) }
+            isLoading = false
+        } catch (e: Exception) {
+            errorMessage = "Failed to load members: ${e.message}"
+            isLoading = false
+        }
+    }
 
-    // FIX: Replaced Box with Scaffold to easily add a TopAppBar
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Members") },
+                title = { Text("My Club Members") },
                 navigationIcon = {
-                    IconButton(onClick = { navController.navigate("dashboard") {
-                        // Clear back stack to avoid multiple dashboards
-                        popUpTo("dashboard") { inclusive = true }
-                    } }) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back to Dashboard"
-                        )
+                    IconButton(onClick = { navController.popBackStack() }) {
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
                     }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                )
+                }
             )
         },
         floatingActionButton = {
-            // --- Floating Buttons ---
-            Column(
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                horizontalAlignment = Alignment.End
+            FloatingActionButton(
+                onClick = { navController.navigate("addMember") },
+                containerColor = MaterialTheme.colorScheme.primary
             ) {
-                // Warning Button
-                FloatingActionButton(
-                    onClick = { /* TODO: show alerts */ },
-                    containerColor = MaterialTheme.colorScheme.errorContainer,
-                    contentColor = MaterialTheme.colorScheme.onErrorContainer
-                ) {
-                    Icon(Icons.Default.Warning, contentDescription = "Alerts")
-                }
-
-                // Add Button
-                FloatingActionButton(
-                    onClick = { navController.navigate("addMember") },
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = "Add Member")
-                }
+                Icon(Icons.Default.Add, contentDescription = "Add Member")
             }
         }
     ) { paddingValues ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues) // Use padding from Scaffold
+                .padding(paddingValues)
                 .background(MaterialTheme.colorScheme.surface)
         ) {
-            // --- Search Bar ---
+
+            // Search field
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = { searchQuery = it },
                 placeholder = { Text("Search members...") },
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") },
-                shape = RoundedCornerShape(30.dp),
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .padding(16.dp)
             )
 
-            // --- Filtered Member List ---
-            val filteredMembers = members.filter {
-                it.name.contains(searchQuery, ignoreCase = true)
-            }
+            when {
+                isLoading -> {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator()
+                    }
+                }
+                errorMessage != null -> {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(text = errorMessage!!, color = Color.Red)
+                    }
+                }
+                else -> {
+                    val filteredMembers = members.filter {
+                        it.firstName.contains(searchQuery.text, ignoreCase = true) ||
+                                it.lastName.contains(searchQuery.text, ignoreCase = true) ||
+                                it.memberId.contains(searchQuery.text, ignoreCase = true)
+                    }
 
-            LazyColumn(
-                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                items(filteredMembers) { member ->
-                    MemberCard(member = member, onClick = {
-                        // TODO: navigate to details
-                        // navController.navigate("memberDetails/${member.name}")
-                    })
+                    LazyColumn(
+                        contentPadding = PaddingValues(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        items(filteredMembers) { member ->
+                            MemberCard(member = member)
+                        }
+                    }
                 }
             }
         }
@@ -137,74 +139,47 @@ fun MembersScreen(navController: NavController) {
 }
 
 @Composable
-fun MemberCard(member: Member, onClick: () -> Unit) {
-    val currencyFormat = NumberFormat.getCurrencyInstance(Locale("en", "MW"))
-    currencyFormat.currency = Currency.getInstance("MWK")
-    val formattedLoan = currencyFormat.format(member.loan)
-    val formattedBalance = currencyFormat.format(member.balance)
-
+fun MemberCard(member: Member) {
     ElevatedCard(
-        onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        shape = RoundedCornerShape(12.dp)
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+            modifier = Modifier.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Profile Initial
+            // Member Image
             Box(
                 modifier = Modifier
-                    .size(48.dp)
+                    .size(60.dp)
                     .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primaryContainer),
+                    .background(Color.LightGray),
                 contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = member.name.first().toString(),
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 20.sp,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer
-                )
-            }
-
-            Spacer(modifier = Modifier.width(16.dp))
-
-            // Member Info
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = member.name,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 17.sp,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-
-                if (member.loan > 0) {
-                    Text(
-                        text = "Active Loan: ${formattedLoan.replace("MWK", "MK")}",
-                        color = MaterialTheme.colorScheme.error,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.SemiBold
+                if (member.imageUrl.isNotEmpty()) {
+                    Image(
+                        painter = rememberAsyncImagePainter(member.imageUrl),
+                        contentDescription = "Member Image",
+                        modifier = Modifier.fillMaxSize()
                     )
                 } else {
-                    Text(
-                        text = "No active loan",
-                        color = Color(0xFF00695C),
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.SemiBold
+                    Icon(
+                        Icons.Default.Person,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(40.dp)
                     )
                 }
             }
 
-            // Arrow Icon
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.ArrowForwardIos,
-                contentDescription = "View Details",
-                tint = MaterialTheme.colorScheme.outline,
-                modifier = Modifier.size(16.dp)
-            )
+            Spacer(modifier = Modifier.width(16.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text("${member.firstName} ${member.lastName}", fontSize = 18.sp, color = Color.Black)
+                Text("ID: ${member.memberId}", fontSize = 14.sp, color = Color.Gray)
+                Text("Phone: ${member.phoneNumber}", fontSize = 14.sp, color = Color.Gray)
+                Text("Email: ${member.email}", fontSize = 14.sp, color = Color.Gray)
+            }
         }
     }
 }
