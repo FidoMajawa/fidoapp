@@ -14,14 +14,16 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.google.firebase.auth.FirebaseAuth
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LoginScreen(navController: NavController) {
-
-    var clubId by remember { mutableStateOf("") }
-    var memberPin by remember { mutableStateOf("") }
+    val auth = FirebaseAuth.getInstance()
+    var email by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
     var loginError by remember { mutableStateOf<String?>(null) }
+    var isLoading by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -30,96 +32,82 @@ fun LoginScreen(navController: NavController) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        // Logo / Title
-        Text(text = "💰", fontSize = 64.sp, modifier = Modifier.padding(bottom = 8.dp))
+        Text("💰", fontSize = 64.sp)
         Text(
-            text = "Bank Nkhonde",
+            "Bank Nkhonde",
             fontSize = 32.sp,
-            fontWeight = FontWeight.ExtraBold,
-            color = NavyBlue,
-            modifier = Modifier.padding(bottom = 4.dp)
-        )
-        Text(
-            text = "Digital Savings Club Management",
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(bottom = 32.dp)
+            fontWeight = FontWeight.Bold,
+            color = NavyBlue
         )
 
-        // Login Card
+        Spacer(Modifier.height(24.dp))
+
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
-            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
         ) {
-            Column(modifier = Modifier.padding(24.dp)) {
-                Text(
-                    text = "Secure Member Sign In",
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.padding(bottom = 24.dp)
-                )
-
-                // Club ID Input
+            Column(Modifier.padding(24.dp)) {
                 OutlinedTextField(
-                    value = clubId,
-                    onValueChange = { clubId = it },
-                    label = { Text("Club ID") },
-                    leadingIcon = { Icon(Icons.Default.AccountCircle, contentDescription = "Club ID") },
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)
-                )
-
-                // Member PIN Input
-                OutlinedTextField(
-                    value = memberPin,
-                    onValueChange = { memberPin = it },
-                    label = { Text("Member PIN / Password") },
-                    leadingIcon = { Icon(Icons.Default.Lock, contentDescription = "PIN") },
-                    visualTransformation = PasswordVisualTransformation(),
-                    shape = RoundedCornerShape(12.dp),
+                    value = email,
+                    onValueChange = { email = it },
+                    label = { Text("Email Address") },
+                    leadingIcon = { Icon(Icons.Default.AccountCircle, contentDescription = null) },
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                // Error Message
+                Spacer(Modifier.height(12.dp))
+
+                OutlinedTextField(
+                    value = password,
+                    onValueChange = { password = it },
+                    label = { Text("Password") },
+                    leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
+                    visualTransformation = PasswordVisualTransformation(),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
                 loginError?.let {
-                    Text(
-                        text = it,
-                        color = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.padding(top = 8.dp)
-                    )
+                    Text(it, color = MaterialTheme.colorScheme.error)
                 }
 
-                Spacer(modifier = Modifier.height(32.dp))
+                Spacer(Modifier.height(24.dp))
 
-                // Sign In Button (sample ID: bank2025 / admin2025)
                 Button(
                     onClick = {
-                        if (clubId == "bank2025" && memberPin == "admin2025") {
-                            navController.navigate("dashboard") {
-                                popUpTo("login") { inclusive = true }
-                            }
-                        } else {
-                            loginError = "Invalid Club ID or PIN."
+                        if (email.isBlank() || password.isBlank()) {
+                            loginError = "Please fill in all fields"
+                            return@Button
                         }
+
+                        isLoading = true
+                        auth.signInWithEmailAndPassword(email.trim(), password)
+                            .addOnCompleteListener { task ->
+                                isLoading = false
+                                if (task.isSuccessful) {
+                                    navController.navigate("dashboard") {
+                                        popUpTo("login") { inclusive = true }
+                                    }
+                                } else {
+                                    loginError = "Invalid email or password"
+                                }
+                            }
                     },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(56.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = NavyBlue)
+                        .height(50.dp),
+                    shape = RoundedCornerShape(12.dp)
                 ) {
-                    Text("Sign In Securely", fontWeight = FontWeight.Bold, color = Gold)
+                    if (isLoading) {
+                        CircularProgressIndicator(
+                            color = Gold,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    } else {
+                        Text("Sign In", fontWeight = FontWeight.Bold, color = Gold)
+                    }
                 }
             }
         }
-
-        // Footnote
-        Text(
-            text = "Secure login via encrypted token",
-            fontSize = 12.sp,
-            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-            modifier = Modifier.padding(top = 16.dp)
-        )
     }
 }

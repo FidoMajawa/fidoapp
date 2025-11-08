@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "191978872763",
+    "project_id": "banknkhonde-1664f",
+    "storage_bucket": "banknkhonde-1664f.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:191978872763:android:288a1d6be64d060984ae9e",
+        "android_client_info": {
+          "package_name": "com.example.banknkhonde"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBeir1j6TAVYMP6uRSbbde3NGqFbnk2qLM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

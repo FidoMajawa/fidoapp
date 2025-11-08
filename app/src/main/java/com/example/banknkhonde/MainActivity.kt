@@ -1,7 +1,6 @@
 package com.example.banknkhonde
 
 import android.os.Bundle
-// FIX: Separated the merged import statement into two lines
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Box
@@ -17,18 +16,20 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.banknkhonde.ui.screens.*
+import com.google.firebase.FirebaseApp // ✅ Add this import
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // ✅ Initialize Firebase before using FirebaseAuth
+        FirebaseApp.initializeApp(this)
+
         setContent {
             AppNavigation()
         }
     }
 }
-
-// ... The rest of your code is correct ...
-
 
 @Composable
 fun AppNavigation() {
@@ -37,22 +38,22 @@ fun AppNavigation() {
     MaterialTheme {
         Surface(color = MaterialTheme.colorScheme.background) {
             NavHost(navController = navController, startDestination = "login") {
-                // Login Screen
+
+                // ✅ Login Screen
                 composable("login") {
                     LoginScreen(navController = navController)
                 }
 
-                // Dashboard
+                // ✅ Dashboard
                 composable("dashboard") {
                     DashboardScreen(navController = navController)
                 }
 
-                // Other screens
+                // Other Screens
                 composable("notifications") {
                     NotificationsScreen(navController = navController)
                 }
 
-                // ADDED: Navigation route for the Add Member screen
                 composable("addMember") {
                     AddMemberScreen(navController = navController)
                 }
@@ -60,16 +61,19 @@ fun AppNavigation() {
                 composable("settings") {
                     SettingsScreen(navController = navController)
                 }
-                // ✅ ADDED NAVIGATION FOR CONTRIBUTION SCREEN
+
                 composable("contributions") {
                     ContributionScreen(navController = navController)
                 }
+
                 composable("members") {
                     MembersScreen(navController = navController)
                 }
+
                 composable("loans") {
                     LoansScreen(navController = navController)
                 }
+
                 composable("reports") {
                     ReportsScreen(navController = navController)
                 }
