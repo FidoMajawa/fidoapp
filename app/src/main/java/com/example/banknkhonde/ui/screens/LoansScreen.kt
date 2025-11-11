@@ -20,53 +20,63 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.tasks.await
 import java.text.NumberFormat
 import java.util.Locale
-import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
 
-// Data class remains the same
+// --- Data class ---
 data class Loan(
-    val memberName: String,
-    val amount: Int,
-    val status: String // "Pending" or "Approved"
+    val id: String = "",
+    val memberName: String = "",
+    val amount: Int = 0,
+    val status: String = "Pending", // "Pending" or "Approved"
+    val chairEmail: String = ""
 )
 
-// Enum for managing tabs to avoid string errors
-enum class LoanTab {
-    Pending,
-    Approved,
-    AddLoan
-}
+// --- Tabs ---
+enum class LoanTab { Pending, Approved, AddLoan }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalAnimationApi::class)
 @Composable
 fun LoansScreen(navController: NavController) {
     var selectedTab by remember { mutableStateOf(LoanTab.Pending) }
 
-    // Sample loans list
-    val loans = remember {
-        mutableStateListOf(
-            Loan("John Banda", 50000, "Pending"),
-            Loan("Mary Chirwa", 75000, "Approved"),
-            Loan("Peter Phiri", 120000, "Pending"),
-            Loan("Alice Mwale", 45000, "Approved")
-        )
+    val db = FirebaseFirestore.getInstance()
+    val currentUser = FirebaseAuth.getInstance().currentUser
+    val currentUserEmail = currentUser?.email ?: ""
+
+    var loans by remember { mutableStateOf(listOf<Loan>()) }
+    var isLoading by remember { mutableStateOf(true) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+
+    // Load loans from Firestore
+    LaunchedEffect(currentUserEmail) {
+        isLoading = true
+        try {
+            val snapshot = db.collection("loans")
+                .whereEqualTo("chairEmail", currentUserEmail)
+                .get()
+                .await()
+            loans = snapshot.documents.mapNotNull { doc ->
+                val loan = doc.toObject(Loan::class.java)
+                loan?.copy(id = doc.id)
+            }
+            isLoading = false
+        } catch (e: Exception) {
+            errorMessage = "Failed to load loans: ${e.message}"
+            isLoading = false
+        }
     }
 
-    // FIX: Replaced the root Column with a Scaffold for a consistent layout
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Loan Management") },
                 navigationIcon = {
                     IconButton(onClick = { navController.navigateUp() }) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back to Dashboard"
-                        )
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 }
             )
@@ -75,52 +85,69 @@ fun LoansScreen(navController: NavController) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues) // Apply padding from the Scaffold
+                .padding(paddingValues)
                 .background(MaterialTheme.colorScheme.surface)
         ) {
-            // --- Tab Selector ---
-            TabSelector(
-                selectedTab = selectedTab,
-                onTabSelected = { selectedTab = it }
-            )
 
-            // --- Animated Content ---
+            TabSelector(selectedTab) { selectedTab = it }
+
             AnimatedContent(
                 targetState = selectedTab,
                 transitionSpec = {
-                    (fadeIn() + slideInHorizontally { it })
-                        .togetherWith(fadeOut() + slideOutHorizontally { -it })
+                    (fadeIn() + slideInHorizontally { it }) togetherWith
+                            (fadeOut() + slideOutHorizontally { -it })
                 },
-                label = "Tab Animation"
+                label = "TabAnimation"
             ) { tab ->
-                Column(
-                    modifier = Modifier
-                        .padding(16.dp)
-                        .fillMaxSize()
-                ) {
+                Column(modifier = Modifier.padding(16.dp).fillMaxSize()) {
                     when (tab) {
-                        LoanTab.Pending -> LoanList(loans.filter { it.status == "Pending" })
-                        LoanTab.Approved -> LoanList(loans.filter { it.status == "Approved" })
-                        LoanTab.AddLoan -> AddLoanSection(
-                            onAddLoan = { newLoan ->
-                                loans.add(newLoan)
-                                selectedTab = LoanTab.Pending
+                        LoanTab.Pending -> LoanList(
+                            loans.filter { it.status == "Pending" },
+                            onApprove = { loan ->
+                                db.collection("loans").document(loan.id)
+                                    .update("status", "Approved")
                             }
                         )
+                        LoanTab.Approved -> LoanList(
+                            loans.filter { it.status == "Approved" },
+                            onUnapprove = { loan ->
+                                db.collection("loans").document(loan.id)
+                                    .update("status", "Pending")
+                            }
+                        )
+                        LoanTab.AddLoan -> AddLoanSection(onAddLoan = { memberName, amount ->
+                            val newLoan = Loan(
+                                memberName = memberName,
+                                amount = amount,
+                                status = "Pending",
+                                chairEmail = currentUserEmail
+                            )
+                            db.collection("loans").add(newLoan)
+                        })
                     }
+                }
+            }
+
+            if (isLoading) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
+                }
+            }
+
+            errorMessage?.let { msg ->
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text(msg, color = Color.Red)
                 }
             }
         }
     }
 }
 
-// REMOVED: The custom ScreenHeader is no longer needed as TopAppBar is used.
-
 @Composable
 fun TabSelector(selectedTab: LoanTab, onTabSelected: (LoanTab) -> Unit) {
     TabRow(
         selectedTabIndex = selectedTab.ordinal,
-        containerColor = MaterialTheme.colorScheme.surface, // Match the page background
+        containerColor = MaterialTheme.colorScheme.surface,
         contentColor = MaterialTheme.colorScheme.primary
     ) {
         LoanTab.values().forEach { tab ->
@@ -140,30 +167,30 @@ fun TabSelector(selectedTab: LoanTab, onTabSelected: (LoanTab) -> Unit) {
 }
 
 @Composable
-fun LoanList(loans: List<Loan>) {
+fun LoanList(
+    loans: List<Loan>,
+    onApprove: ((Loan) -> Unit)? = null,
+    onUnapprove: ((Loan) -> Unit)? = null
+) {
     if (loans.isEmpty()) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(top = 64.dp),
-            contentAlignment = Alignment.Center
-        ) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Text("No loans in this category.", color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     } else {
-        LazyColumn(
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-            modifier = Modifier.fillMaxSize()
-        ) {
+        LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             items(loans) { loan ->
-                LoanCard(loan = loan)
+                LoanCard(loan, onApprove, onUnapprove)
             }
         }
     }
 }
 
 @Composable
-fun LoanCard(loan: Loan) {
+fun LoanCard(
+    loan: Loan,
+    onApprove: ((Loan) -> Unit)? = null,
+    onUnapprove: ((Loan) -> Unit)? = null
+) {
     val currencyFormat = NumberFormat.getCurrencyInstance(Locale("en", "MW")).apply {
         currency = java.util.Currency.getInstance("MWK")
     }
@@ -172,38 +199,39 @@ fun LoanCard(loan: Loan) {
     ElevatedCard(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(2.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                text = loan.memberName,
-                fontWeight = FontWeight.Bold,
-                fontSize = 18.sp,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            Spacer(modifier = Modifier.height(8.dp))
+            Text(loan.memberName, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+            Spacer(Modifier.height(8.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = formattedAmount,
-                    fontSize = 16.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontWeight = FontWeight.SemiBold
-                )
+                Text(formattedAmount, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
                 Surface(
                     shape = RoundedCornerShape(8.dp),
                     color = if (loan.status == "Approved") Color(0xFFE8F5E9) else Color(0xFFFFF8E1),
                     contentColor = if (loan.status == "Approved") Color(0xFF2E7D32) else Color(0xFFFFA000)
                 ) {
-                    Text(
-                        text = loan.status,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 12.sp,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                    )
+                    Text(loan.status, fontWeight = FontWeight.Bold, fontSize = 12.sp, modifier = Modifier.padding(8.dp))
+                }
+            }
+
+            Spacer(Modifier.height(8.dp))
+
+            // Approve / Unapprove Button
+            when {
+                loan.status == "Pending" && onApprove != null -> {
+                    Button(onClick = { onApprove(loan) }, modifier = Modifier.fillMaxWidth()) {
+                        Text("Approve")
+                    }
+                }
+                loan.status == "Approved" && onUnapprove != null -> {
+                    Button(onClick = { onUnapprove(loan) }, modifier = Modifier.fillMaxWidth()) {
+                        Text("Unapprove")
+                    }
                 }
             }
         }
@@ -211,50 +239,44 @@ fun LoanCard(loan: Loan) {
 }
 
 @Composable
-fun AddLoanSection(onAddLoan: (Loan) -> Unit) {
+fun AddLoanSection(onAddLoan: (String, Int) -> Unit) {
     var memberName by remember { mutableStateOf("") }
     var amount by remember { mutableStateOf("") }
     var hasError by remember { mutableStateOf(false) }
 
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .navigationBarsPadding(), // Avoid bottom navigation bar
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
+    Column(verticalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.fillMaxWidth()) {
         OutlinedTextField(
             value = memberName,
             onValueChange = { memberName = it },
             label = { Text("Member Name") },
-            modifier = Modifier.fillMaxWidth(),
             leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
             isError = hasError && memberName.isBlank()
         )
+
         OutlinedTextField(
             value = amount,
-            onValueChange = { amount = it.filter { char -> char.isDigit() } },
+            onValueChange = { amount = it.filter { c -> c.isDigit() } },
             label = { Text("Loan Amount") },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-            modifier = Modifier.fillMaxWidth(),
             leadingIcon = { Icon(Icons.Default.AttachMoney, contentDescription = null) },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             isError = hasError && amount.isBlank()
         )
+
         Button(
             onClick = {
-                val amountInt = amount.toIntOrNull()
-                if (memberName.isNotBlank() && amountInt != null) {
-                    onAddLoan(Loan(memberName, amountInt, "Pending"))
+                val amt = amount.toIntOrNull()
+                if (memberName.isNotBlank() && amt != null) {
+                    onAddLoan(memberName, amt)
+                    memberName = ""
+                    amount = ""
                     hasError = false
                 } else {
                     hasError = true
                 }
             },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(52.dp),
-            shape = RoundedCornerShape(12.dp)
+            modifier = Modifier.fillMaxWidth()
         ) {
-            Text("Submit Loan Application", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            Text("Submit Loan Application")
         }
     }
 }
