@@ -25,25 +25,9 @@ import kotlinx.coroutines.tasks.await
 import java.text.NumberFormat
 import java.util.*
 import androidx.compose.ui.graphics.Color
-import com.example.banknkhonde.ui.screens.Member
-
-
-
-data class Loan(
-    val id: String = "",
-    val memberName: String = "",
-    val amount: Int = 0,
-    val status: String = "Pending", // "Pending" or "Approved"
-    val chairEmail: String = ""
-)
-
-data class Contribution(
-    val memberName: String = "",
-    val amount: Int = 0,
-    val chairEmail: String = ""
-)
-
-
+import com.example.banknkhonde.ui.models.Loan
+import com.example.banknkhonde.ui.models.MemberModel
+import com.example.banknkhonde.ui.models.Contribution
 
 enum class LoanTab { Pending, Approved, AddLoan }
 
@@ -56,7 +40,7 @@ fun LoansScreen(navController: NavController) {
 
     var loans by remember { mutableStateOf(listOf<Loan>()) }
     var contributions by remember { mutableStateOf(listOf<Contribution>()) }
-    var members by remember { mutableStateOf(listOf<Member>()) }
+    var members by remember { mutableStateOf(listOf<MemberModel>()) }
 
     var isLoading by remember { mutableStateOf(true) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
@@ -83,7 +67,7 @@ fun LoansScreen(navController: NavController) {
             val membersSnap = db.collection("clubMembers")
                 .whereEqualTo("chairEmail", currentUserEmail)
                 .get().await()
-            members = membersSnap.documents.mapNotNull { it.toObject(Member::class.java) }
+            members = membersSnap.documents.mapNotNull { it.toObject(MemberModel::class.java) }
 
             isLoading = false
         } catch (e: Exception) {
@@ -276,7 +260,7 @@ fun LoanCard(
 }
 
 @Composable
-fun AddLoanSection(members: List<Member>, onAddLoan: (String, Int) -> Unit) {
+fun AddLoanSection(members: List<MemberModel>, onAddLoan: (String, Int) -> Unit) {
     var memberName by remember { mutableStateOf("") }
     var amount by remember { mutableStateOf("") }
     var hasError by remember { mutableStateOf(false) }

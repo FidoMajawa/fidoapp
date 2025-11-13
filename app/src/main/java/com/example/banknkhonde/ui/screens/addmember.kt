@@ -30,10 +30,15 @@ import coil.compose.rememberAsyncImagePainter
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.storage.FirebaseStorage
-import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.*
+import kotlinx.coroutines.tasks.await
 
+
+/* -----------------------------
+   Member Data Class
+------------------------------ */
 data class NewMember(
     val firstName: String = "",
     val lastName: String = "",
@@ -44,6 +49,9 @@ data class NewMember(
     val chairEmail: String = ""
 )
 
+/* -----------------------------
+   Add Member Screen
+------------------------------ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddMemberScreen(navController: NavController) {
@@ -62,9 +70,7 @@ fun AddMemberScreen(navController: NavController) {
 
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
-    ) { uri: Uri? ->
-        selectedImageUri = uri
-    }
+    ) { uri: Uri? -> selectedImageUri = uri }
 
     fun validateFields(): Boolean =
         firstName.isNotBlank() && lastName.isNotBlank() && memberId.isNotBlank()
@@ -173,6 +179,7 @@ fun AddMemberScreen(navController: NavController) {
 
             Spacer(modifier = Modifier.height(20.dp))
 
+            // Add Member Button
             Button(
                 onClick = {
                     if (!validateFields()) {
@@ -184,9 +191,21 @@ fun AddMemberScreen(navController: NavController) {
                         try {
                             var imageUrl = ""
                             selectedImageUri?.let { uri ->
-                                val ref = storage.reference.child("memberImages/${UUID.randomUUID()}")
-                                ref.putFile(uri).await()
-                                imageUrl = ref.downloadUrl.await().toString()
+                                // 1. Create a safe and unique file name.
+                                // Using a UUID ensures the file name is unique and avoids
+                                // potential overwrites or caching issues.
+                                val safeMemberId = memberId.replace("[^a-zA-Z0-9]".toRegex(), "_")
+                                val fileName = "${safeMemberId}_${UUID.randomUUID()}"
+                                val ref = storage.reference.child("memberImages/$fileName")
+
+                                // 2. Upload the file and get the TaskSnapshot result
+                                val taskSnapshot = ref.putFile(uri).await()
+
+                                // 3. Get the download URL from the *snapshot's* reference
+                                // This is the correct, reliable way to get the URL
+                                // and avoids the "object does not exist" race condition.
+                                // Your retry loop is no longer needed.
+                                imageUrl = taskSnapshot.storage.downloadUrl.await().toString()
                             }
 
                             val newMember = NewMember(
@@ -199,6 +218,7 @@ fun AddMemberScreen(navController: NavController) {
                                 chairEmail = currentUserEmail
                             )
 
+                            // Save member to Firestore
                             db.collection("clubMembers")
                                 .document(memberId)
                                 .set(newMember)
@@ -208,7 +228,8 @@ fun AddMemberScreen(navController: NavController) {
                             navController.popBackStack()
 
                         } catch (e: Exception) {
-                            snackbarHostState.showSnackbar("Error: ${e.message}")
+                            // Provide a slightly more detailed error message
+                            snackbarHostState.showSnackbar("Error adding member: ${e.message}")
                         }
                     }
                 },

@@ -23,23 +23,17 @@ import coil.compose.rememberAsyncImagePainter
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
+import com.example.banknkhonde.ui.models.MemberModel
 
-data class Member(
-    val firstName: String = "",
-    val lastName: String = "",
-    val memberId: String = "",
-    val phoneNumber: String = "",
-    val email: String = "",
-    val imageUrl: String = "",
-    val chairEmail: String = ""
-)
+
+// Renamed to MemberModel to avoid redeclaration
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MembersScreen(navController: NavController) {
     val db = FirebaseFirestore.getInstance()
     val currentUserEmail = FirebaseAuth.getInstance().currentUser?.email ?: ""
-    var members by remember { mutableStateOf<List<Member>>(emptyList()) }
+    var members by remember { mutableStateOf<List<MemberModel>>(emptyList()) }
     var searchQuery by remember { mutableStateOf(TextFieldValue("")) }
     var isLoading by remember { mutableStateOf(true) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
@@ -51,7 +45,7 @@ fun MembersScreen(navController: NavController) {
                 .whereEqualTo("chairEmail", currentUserEmail)
                 .get()
                 .await()
-            members = snapshot.documents.mapNotNull { it.toObject(Member::class.java) }
+            members = snapshot.documents.mapNotNull { it.toObject(MemberModel::class.java) }
             isLoading = false
         } catch (e: Exception) {
             errorMessage = "Failed to load members: ${e.message}"
@@ -136,7 +130,7 @@ fun MembersScreen(navController: NavController) {
 }
 
 @Composable
-fun MemberCard(member: Member) {
+fun MemberCard(member: MemberModel) {
     ElevatedCard(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp)
