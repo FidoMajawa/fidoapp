@@ -22,7 +22,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // ✅ Initialize Firebase before using FirebaseAuth
+        // Initialize Firebase
         FirebaseApp.initializeApp(this)
 
         setContent {
@@ -37,7 +37,12 @@ fun AppNavigation() {
 
     MaterialTheme {
         Surface(color = MaterialTheme.colorScheme.background) {
-            NavHost(navController = navController, startDestination = "login") {
+            NavHost(navController = navController, startDestination = "splash") {
+
+                // ✅ Splash Screen
+                composable("splash") {
+                    SplashScreen(navController = navController)
+                }
 
                 // ✅ Login Screen
                 composable("login") {
@@ -73,8 +78,9 @@ fun AppNavigation() {
                 composable("loans") {
                     LoansScreen(navController = navController)
                 }
+
                 composable("addContribution") {
-                    AddContributionScreen(navController)
+                    AddContributionScreen(navController = navController)
                 }
 
                 composable("reports") {
@@ -85,6 +91,9 @@ fun AppNavigation() {
     }
 }
 
+/* -----------------------------------
+   Placeholder Composables
+----------------------------------- */
 @Composable
 fun DashboardScreenUnique(navController: NavHostController) {
     TODO("Not yet implemented")
