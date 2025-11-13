@@ -1,5 +1,6 @@
 package com.example.banknkhonde.ui.screens
 
+import android.annotation.SuppressLint
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -21,58 +22,143 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.tasks.await
+import java.text.NumberFormat
+import java.text.SimpleDateFormat
+import java.util.*
 
-// ✅ COLORS from com.example.banknkhonde.ui.color.kt
 import com.example.banknkhonde.ui.screens.Gold
 import com.example.banknkhonde.ui.screens.LightSlate
 import com.example.banknkhonde.ui.screens.NavyBlue
 import com.example.banknkhonde.ui.screens.Slate
+import com.example.banknkhonde.ui.models.Contribution
+import com.example.banknkhonde.ui.models.Loan
 
+/* -----------------------------------------------------
+   Transaction Data Class
+------------------------------------------------------ */
+data class TransactionItem(
+    val description: String,
+    val amount: Int,
+    val date: String,
+    val type: String // "credit" or "debit"
+)
+
+/* -----------------------------------------------------
+   Dashboard Screen
+------------------------------------------------------ */
+@SuppressLint("UnrememberedMutableState")
 @Composable
 fun DashboardScreen(navController: NavController) {
-    Scaffold(
-        bottomBar = { BottomNavigationBar(navController) } // 👈 Add bottom navigation
-    ) { innerPadding ->
-        LazyColumn(
-            modifier = Modifier
-                .padding(innerPadding)
-                .fillMaxSize()
-                .background(MaterialTheme.colorScheme.surfaceContainerLowest)
-        ) {
-            item { DashboardHeader(name = "Club Administrator") }
-            item { DashboardQuickActions(navController) }
+    val db = FirebaseFirestore.getInstance()
 
-            item {
-                Column(Modifier.padding(horizontal = 16.dp, vertical = 20.dp)) {
-                    Text(
-                        text = "Recent Activity",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
+    var contributions by remember { mutableStateOf(listOf<Contribution>()) }
+    var loans by remember { mutableStateOf(listOf<Loan>()) }
+    var isLoading by remember { mutableStateOf(true) }
+
+    // Load contributions and loans from Firestore
+    LaunchedEffect(Unit) {
+        isLoading = true
+        try {
+            val contributionsSnapshot = db.collection("contributions").get().await()
+            contributions = contributionsSnapshot.documents.mapNotNull { it.toObject(Contribution::class.java) }
+
+            val loansSnapshot = db.collection("loans").get().await()
+            loans = loansSnapshot.documents.mapNotNull { it.toObject(Loan::class.java) }
+
+        } catch (e: Exception) {
+            e.printStackTrace()
+        } finally {
+            isLoading = false
+        }
+    }
+
+    // Compute total savings and growth
+    val totalSavings = contributions.sumOf { it.amount }
+    val growth = if (contributions.size >= 2) {
+        val prevTotal = contributions.dropLast(1).sumOf { it.amount }
+        if (prevTotal != 0) ((totalSavings - prevTotal) * 100 / prevTotal) else 0
+    } else 0
+
+    val currencyFormat = NumberFormat.getCurrencyInstance(Locale("en", "MW")).apply {
+        currency = Currency.getInstance("MWK")
+    }
+    val totalFormatted = currencyFormat.format(totalSavings).replace("MWK", "MK ")
+    val growthFormatted = if (growth >= 0) "+$growth%" else "$growth%"
+
+    // Merge contributions and loans for Recent Activity
+    val transactions by derivedStateOf {
+        val list = mutableListOf<TransactionItem>()
+        contributions.forEach {
+            list.add(TransactionItem("Contribution - ${it.memberName}", it.amount, it.date, "credit"))
+        }
+        loans.forEach { loan ->
+            val type = if (loan.status == "repaid") "credit" else "debit"
+            val desc = when (loan.status) {
+                "repaid" -> "Loan repayment - ${loan.memberName}"
+                "approved" -> "Loan disbursed - ${loan.memberName}"
+                else -> "Loan - ${loan.memberName}"
+            }
+            list.add(TransactionItem(desc, loan.amount, loan.date, type))
+        }
+
+        val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+        list.sortedByDescending {
+            try { sdf.parse(it.date) ?: Date(0) } catch (e: Exception) { Date(0) }
+        }
+    }
+
+    val displayDateFormat = SimpleDateFormat("dd MMM yyyy", Locale.getDefault())
+
+    Scaffold(bottomBar = { BottomNavigationBar(navController) }) { innerPadding ->
+        if (isLoading) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator()
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier
+                    .padding(innerPadding)
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.surfaceContainerLowest)
+            ) {
+                item {
+                    DashboardHeader(name = "Club Administrator", total = totalFormatted, growth = growthFormatted)
                 }
+                item { DashboardQuickActions(navController) }
+
+                item {
+                    Column(Modifier.padding(horizontal = 16.dp, vertical = 20.dp)) {
+                        Text(
+                            text = "Recent Activity",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                }
+
+                items(transactions) { t ->
+                    val amountFormatted = currencyFormat.format(t.amount).replace(
+                        "MWK",
+                        if (t.type == "credit") "+ MK " else "- MK "
+                    )
+                    val displayDate = try { displayDateFormat.format(SimpleDateFormat("yyyy-MM-dd").parse(t.date)) } catch (e: Exception) { t.date }
+                    TransactionRow(description = t.description, amount = amountFormatted, date = displayDate)
+                }
+
+                item { Spacer(modifier = Modifier.height(16.dp)) }
             }
-
-            val transactions = listOf(
-                Triple("Loan repayment - P. Majawa", "+ MK 15,000", "27 Oct 2025"),
-                Triple("Contribution - M. Chirwa", "+ MK 5,000", "26 Oct 2025"),
-                Triple("Loan disbursed - K. Banda", "- MK 50,000", "25 Oct 2025")
-            )
-
-            items(transactions) { (desc, amount, date) ->
-                TransactionRow(description = desc, amount = amount, date = date)
-            }
-
-            item { Spacer(modifier = Modifier.height(16.dp)) }
         }
     }
 }
 
 /* -----------------------------------------------------
-   Header Section
+   Dashboard Header
 ------------------------------------------------------ */
 @Composable
-fun DashboardHeader(name: String) {
+fun DashboardHeader(name: String, total: String, growth: String) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -97,26 +183,12 @@ fun DashboardHeader(name: String) {
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text("Total Savings", color = LightSlate, style = MaterialTheme.typography.bodySmall)
-                        Text(
-                            text = "MK 1.24M",
-                            color = Gold,
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.ExtraBold
-                        )
+                        Text(total, color = Gold, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
                     }
-                    VerticalDivider(
-                        modifier = Modifier.height(30.dp),
-                        thickness = 1.dp,
-                        color = Slate.copy(alpha = 0.5f)
-                    )
+                    VerticalDivider(modifier = Modifier.height(30.dp), thickness = 1.dp, color = Slate.copy(alpha = 0.5f))
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text("Growth", color = LightSlate, style = MaterialTheme.typography.bodySmall)
-                        Text(
-                            text = "+12.5%",
-                            color = Color(0xFF64FFDA),
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.ExtraBold
-                        )
+                        Text(growth, color = if (growth.startsWith("+")) Color(0xFF64FFDA) else Color.Red, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
                     }
                 }
             }
@@ -202,10 +274,7 @@ fun TransactionRow(description: String, amount: String, date: String) {
             modifier = Modifier
                 .size(40.dp)
                 .clip(CircleShape)
-                .background(
-                    if (isCredit) Color(0xFF2E7D32).copy(alpha = 0.1f)
-                    else MaterialTheme.colorScheme.error.copy(alpha = 0.1f)
-                )
+                .background(if (isCredit) Color(0xFF2E7D32).copy(alpha = 0.1f) else MaterialTheme.colorScheme.error.copy(alpha = 0.1f))
                 .padding(8.dp)
         )
 
@@ -217,7 +286,7 @@ fun TransactionRow(description: String, amount: String, date: String) {
         }
 
         Text(
-            text = amount,
+            amount,
             fontWeight = FontWeight.Bold,
             color = if (isCredit) Color(0xFF2E7D32) else MaterialTheme.colorScheme.error,
             fontSize = 16.sp

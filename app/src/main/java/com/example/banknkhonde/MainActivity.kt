@@ -16,7 +16,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.banknkhonde.ui.screens.*
-import com.google.firebase.FirebaseApp // ✅ Add this import
+import com.google.firebase.FirebaseApp
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -72,6 +72,9 @@ fun AppNavigation() {
 
                 composable("loans") {
                     LoansScreen(navController = navController)
+                }
+                composable("addContribution") {
+                    AddContributionScreen(navController)
                 }
 
                 composable("reports") {

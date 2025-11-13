@@ -8,9 +8,11 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Savings
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -19,109 +21,110 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.ListenerRegistration
 import java.text.NumberFormat
-import java.util.Locale
+import java.util.*
+import com.example.banknkhonde.ui.models.Contribution
 
-// Data class for a single contribution
-data class Contribution(
-    val memberName: String,
-    val amount: Int,
-    val date: String
-)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ContributionScreen(navController: NavController) {
-    // Sample contributions
-    val contributions = listOf(
-        Contribution("Mary Chirwa", 5000, "26 Oct 2025"),
-        Contribution("John Banda", 5000, "26 Oct 2025"),
-        Contribution("Alice Mwale", 10000, "25 Oct 2025"),
-        Contribution("David Kamanga", 5000, "25 Oct 2025"),
-        Contribution("Peter Phiri", 5000, "24 Oct 2025")
-    )
 
-    // FIX: Replaced the root LazyColumn with a Scaffold for a consistent layout
+    val db = FirebaseFirestore.getInstance()
+    var contributions by remember { mutableStateOf(listOf<Contribution>()) }
+    var loading by remember { mutableStateOf(true) }
+    var error by remember { mutableStateOf<String?>(null) }
+
+    DisposableEffect(Unit) {
+        val listener: ListenerRegistration =
+            db.collection("contributions")
+                .addSnapshotListener { snapshot, e ->
+                    if (e != null) {
+                        error = "Failed to load contributions: ${e.message}"
+                        loading = false
+                        return@addSnapshotListener
+                    }
+
+                    contributions = snapshot?.documents?.mapNotNull {
+                        it.toObject(Contribution::class.java)
+                    } ?: emptyList()
+
+                    loading = false
+                }
+
+        onDispose { listener.remove() }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Contributions") },
                 navigationIcon = {
                     IconButton(onClick = { navController.navigateUp() }) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back to Dashboard"
-                        )
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
+                    }
+                },
+                actions = {
+                    IconButton(onClick = { navController.navigate("addContribution") }) {
+                        Icon(Icons.Default.Add, "Add Contribution")
                     }
                 }
             )
         }
-    ) { paddingValues ->
-        // Main content is now a LazyColumn inside the Scaffold
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues) // Use padding from Scaffold
-                .background(MaterialTheme.colorScheme.surfaceContainerLowest),
-            contentPadding = PaddingValues(bottom = 16.dp)
-        ) {
-            // --- Summary Card ---
-            item {
-                SummaryCard(totalContributions = contributions.sumOf { it.amount })
+    ) { padding ->
+
+        when {
+            loading -> Box(Modifier.fillMaxSize(), Alignment.Center) {
+                CircularProgressIndicator()
             }
 
-            // --- Filter and List Header ---
-            item {
-                ListHeader()
+            error != null -> Box(Modifier.fillMaxSize(), Alignment.Center) {
+                Text(error!!, color = Color.Red)
             }
 
-            // --- List of Contributions ---
-            items(contributions) { contribution ->
-                ContributionRow(contribution)
+            else -> LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .background(MaterialTheme.colorScheme.surfaceContainerLowest)
+            ) {
+                item {
+                    SummaryCard(contributions.sumOf { it.amount })
+                }
+
+                item { ListHeader() }
+
+                items(contributions) {
+                    ContributionRow(it)
+                }
             }
         }
     }
 }
 
-// REMOVED: The custom ContributionHeader is no longer needed as TopAppBar is used.
-
 @Composable
-fun SummaryCard(totalContributions: Int) {
-    val currencyFormat = NumberFormat.getCurrencyInstance(Locale("en", "MW")).apply {
-        currency = java.util.Currency.getInstance("MWK")
-    }
-    val formattedTotal = currencyFormat.format(totalContributions).replace("MWK", "MK ")
+fun SummaryCard(total: Int) {
+    val nf = NumberFormat.getCurrencyInstance(Locale("en", "MW"))
+    nf.currency = Currency.getInstance("MWK")
+    val formatted = nf.format(total).replace("MWK", "MK ")
 
     ElevatedCard(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp), // Adjusted padding
-        shape = RoundedCornerShape(20.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+            .padding(16.dp),
+        shape = RoundedCornerShape(20.dp)
     ) {
         Row(
             modifier = Modifier.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                Icons.Filled.Savings,
-                contentDescription = "Total Contributions",
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(40.dp)
-            )
-            Spacer(modifier = Modifier.width(16.dp))
+            Icon(Icons.Default.Savings, null, tint = MaterialTheme.colorScheme.primary)
+            Spacer(Modifier.width(16.dp))
             Column {
-                Text(
-                    text = "Total This Month",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    text = formattedTotal,
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
+                Text("Total Contributions", color = Color.Gray)
+                Text(formatted, fontWeight = FontWeight.Bold, fontSize = 20.sp)
             }
         }
     }
@@ -132,64 +135,43 @@ fun ListHeader() {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 12.dp), // Adjusted top padding
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+            .padding(20.dp),
+        horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Text(
-            "Recent Deposits",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold
-        )
-        TextButton(onClick = { /* TODO: Implement date filtering */ }) {
-            Icon(Icons.Default.DateRange, contentDescription = "Filter by date", modifier = Modifier.size(18.dp))
-            Spacer(modifier = Modifier.width(4.dp))
-            Text("Filter")
-        }
+        Text("Recent Deposits", fontWeight = FontWeight.Bold)
     }
 }
 
 @Composable
-fun ContributionRow(contribution: Contribution) {
-    val currencyFormat = NumberFormat.getCurrencyInstance(Locale("en", "MW")).apply {
-        currency = java.util.Currency.getInstance("MWK")
-    }
-    val formattedAmount = currencyFormat.format(contribution.amount).replace("MWK", "+ MK ")
+fun ContributionRow(c: Contribution) {
+    val nf = NumberFormat.getCurrencyInstance(Locale("en", "MW"))
+    nf.currency = Currency.getInstance("MWK")
+    val amount = nf.format(c.amount).replace("MWK", "+ MK ")
 
     Row(
-        modifier = Modifier
+        Modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 12.dp),
+            .padding(12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
-            imageVector = Icons.Filled.Person,
-            contentDescription = "Member",
+            Icons.Default.Person,
+            null,
             modifier = Modifier
                 .size(40.dp)
                 .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.surfaceContainer)
+                .background(Color(0xFFEFEFEF))
                 .padding(8.dp),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant
+            tint = Color.Gray
         )
-        Spacer(modifier = Modifier.width(16.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = contribution.memberName,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            Text(
-                text = contribution.date,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+
+        Spacer(Modifier.width(16.dp))
+
+        Column(Modifier.weight(1f)) {
+            Text(c.memberName, fontWeight = FontWeight.SemiBold)
+            Text(c.date, fontSize = 12.sp, color = Color.Gray)
         }
-        Text(
-            text = formattedAmount,
-            fontWeight = FontWeight.Bold,
-            color = Color(0xFF2E7D32),
-            fontSize = 16.sp
-        )
+
+        Text(amount, fontWeight = FontWeight.Bold, color = Color(0xFF2E7D32))
     }
 }
