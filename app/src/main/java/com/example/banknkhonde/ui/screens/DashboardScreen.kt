@@ -308,9 +308,9 @@ fun BottomNavigationBar(navController: NavController) {
         )
         NavigationBarItem(
             selected = false,
-            onClick = { navController.navigate("notifications") },
-            icon = { Icon(Icons.Filled.Notifications, contentDescription = "Notifications", tint = Gold) },
-            label = { Text("Notifications", color = LightSlate) }
+            onClick = { navController.navigate("attendance") },
+            icon = { Icon(Icons.Filled.Notifications, contentDescription = "Attendance", tint = Gold) },
+            label = { Text("Attendance", color = LightSlate) }
         )
         NavigationBarItem(
             selected = false,

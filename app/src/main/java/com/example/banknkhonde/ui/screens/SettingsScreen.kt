@@ -18,14 +18,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 
-// New data class with an icon for better visual distinction
+// --- Data class for each setting item ---
 data class SettingItem(
     val title: String,
     val description: String,
@@ -35,14 +34,14 @@ data class SettingItem(
 
 @Composable
 fun SettingsScreen(navController: NavController) {
-    // A more comprehensive list of settings with icons
     val settingsSections = mapOf(
         "Account" to listOf(
             SettingItem("Edit Profile", "Update your personal information", Icons.Default.Person, "profile"),
             SettingItem("Security", "Change password, enable 2FA", Icons.Default.Shield, "security")
         ),
         "Preferences" to listOf(
-            SettingItem("Notifications", "Manage push and email alerts", Icons.Default.Notifications, "notifications"),
+            // ✅ Notifications now points to your real Notifications / Attendance screen
+            SettingItem("Notifications", "Manage attendance & alerts", Icons.Default.Notifications, "notifications"),
             SettingItem("Appearance", "Switch between light and dark themes", Icons.Default.Palette, "appearance")
         ),
         "Support" to listOf(
@@ -50,28 +49,22 @@ fun SettingsScreen(navController: NavController) {
         )
     )
 
-    // FIX: Removed the conflicting Scaffold, TopBar, and BottomBar.
-    // This content will now render correctly inside the main AppNavHost Scaffold.
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.surfaceContainerLowest), // A very light background
+            .background(MaterialTheme.colorScheme.surfaceContainerLowest),
         contentPadding = PaddingValues(vertical = 16.dp)
     ) {
         // --- Header ---
-        item {
-            SettingsHeader()
-        }
+        item { SettingsHeader() }
 
         // --- Settings Sections ---
         settingsSections.forEach { (sectionTitle, items) ->
-            item {
-                SectionHeader(title = sectionTitle)
-            }
+            item { SectionHeader(title = sectionTitle) }
             items(items) { item ->
-                SettingsItemRow(item = item, onClick = {
+                SettingsItemRow(item = item) {
                     item.route?.let { navController.navigate(it) }
-                })
+                }
             }
         }
 
@@ -79,11 +72,8 @@ fun SettingsScreen(navController: NavController) {
         item {
             Spacer(modifier = Modifier.height(24.dp))
             LogoutButton(onClick = {
-                // Clear the back stack and navigate to the login screen
                 navController.navigate("login") {
-                    popUpTo(navController.graph.startDestinationId) {
-                        inclusive = true
-                    }
+                    popUpTo(navController.graph.startDestinationId) { inclusive = true }
                 }
             })
         }

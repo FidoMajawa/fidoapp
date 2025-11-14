@@ -3,15 +3,9 @@ package com.example.banknkhonde
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -54,7 +48,12 @@ fun AppNavigation() {
                     DashboardScreen(navController = navController)
                 }
 
-                // Other Screens
+                // ✅ Attendance Screen (shows club members + penalties)
+                composable("attendance") {
+                    AttendanceScreen(navController = navController)
+                }
+
+                // Optional: Separate Notifications Screen if needed in future
                 composable("notifications") {
                     NotificationsScreen(navController = navController)
                 }
@@ -86,30 +85,11 @@ fun AppNavigation() {
                 composable("reports") {
                     ReportsScreen(navController = navController)
                 }
+
+                composable("sendNotification") {
+                    SendNotificationScreen(navController = navController)
+                }
             }
         }
-    }
-}
-
-/* -----------------------------------
-   Placeholder Composables
------------------------------------ */
-@Composable
-fun DashboardScreenUnique(navController: NavHostController) {
-    TODO("Not yet implemented")
-}
-
-@Composable
-fun NotificationsScreen(navController: NavHostController) {
-    TODO("Not yet implemented")
-}
-
-@Composable
-fun SimpleScreen(name: String) {
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(text = name, style = MaterialTheme.typography.titleLarge)
     }
 }
